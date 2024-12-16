@@ -49,8 +49,8 @@ async def filter_recipes_based_on_exclusions(excluded_ingredients: list, recipes
                 {"role": "system", "content": "You are an assistant who identifies ingredients to exclude from recipes based on user queries."},
                 {"role": "user", "content": f"You have a list of recipes, each containing ingredients{recipes}. You also have a list of ingredients that the user wants to exclude — {excluded_ingredients}.\
                   If the exclusion list is empty, return all recipes unchanged.\
-                  If the exclusion list is not empty, remove from the list of recipes those that contain any ingredient from the exclusion list.\
-                  Return the remaining recipes in the same format as input, without any additional comments."}
+                  If the exclusion list is not empty, remove from the list of recipes those that contain any ingredient (or really clause to it, example: dairy products relates to milk, ice cream, etc) from the exclusion list.\
+                  Return the remaining recipes in the same format as input, without any additional comments. If after the exclusion the list is empty, return empty list."}
             ],
             max_tokens=7000
         )
