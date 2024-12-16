@@ -33,5 +33,4 @@ async def process_user_request(request: Request):
 
     filtered_recipes = await filter_recipes_based_on_exclusions(excluded_ingredients, recipes)
 
-    response_message = generate_user_response(filtered_recipes)
-    return {"message": response_message}
+    return generate_user_response(filtered_recipes)
