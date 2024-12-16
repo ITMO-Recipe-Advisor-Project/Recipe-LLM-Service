@@ -1,0 +1,12 @@
+services:
+  recipe-llm-service:
+    image: recipe-llm-service:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: recipe-llm-service
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./env:/app/env
+    restart: unless-stopped

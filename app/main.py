@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ValidationError
 import logging
-from services import get_recipes_from_service, filter_products_with_gpt, filter_recipes_based_on_exclusions
-from utils import generate_user_response
+from app.services import get_recipes_from_service, filter_products_with_gpt, filter_recipes_based_on_exclusions
+from app.utils import generate_user_response
 
 logging.basicConfig(level=logging.INFO)
 
