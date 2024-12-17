@@ -12,5 +12,6 @@ def get_config():
     env_vars = dotenv_values("env/.env")
     return {
         "OPENAI_API_KEY": env_vars["OPENAI_API_KEY"],
+        "PROXY": env_vars["PROXY"],
 
     }

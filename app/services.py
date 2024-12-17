@@ -5,71 +5,102 @@ import logging
 import httpx
 from pydantic import BaseModel
 from app.config import get_config
+import json
 
 
 class RecipeResponse(BaseModel):
     title: str
     link: str
+
+
 config = get_config()
-
 openai.api_key = config["OPENAI_API_KEY"]
+openai.proxy = config["PROXY"]
 
-async def filter_products_with_gpt(query: str) -> List[str]:
+
+async def filter_products_with_gpt(query: str) -> tuple[None, None] | tuple[str, str]:
     try:
         logging.info(f"Sending query to GPT: {query}")
+
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are an assistant who extracts ingredients from recipe-related queries."},
-                {"role": "user", "content": f"Determine the list of necessary ingredients and list of excluded ingredients from the following query: '{query}'.If this is not a request for a recipe,write 'Not a request for a recipe'. In response, give only one sting with lists of ingredients separated by a dot, ingredients sepatate by a comma"}
+                {"role": "user", "content": f"Determine the list of necessary ingredients, from the following query: "
+                                            f"'{query}'. Output the json with two fields: status, ingredients and original_query. "
+                                            f"status field contains 'valid' value if query related  with asking recipe "
+                                            f"with ingredients input and 'invalid' value if query not related. ingredients "
+                                            f"field contains list of ingredients from the query, if there is no ingredients "
+                                            f"the field must be an empty list. original_query field contains string of "
+                                            f"the original query"},
             ],
-            max_tokens=50
+            response_format={"type": "json_object"},
+            max_tokens=1000
         )
-        result = response["choices"][0]["message"]["content"].strip()
-        logging.info(f"GPT response: {result}")
-        if result.lower().startswith("not a request for a recipe"):
+
+        try:
+            result = json.loads(response["choices"][0]["message"]["content"])
+        except json.JSONDecodeError as e:
+            logging.info(f"Failed to decode JSON: {e}")
             return None, None
-        
-        ingredient_parts = result.split(".")
 
-        necessary_ingredients = [ingredient.strip() for ingredient in ingredient_parts[0].split(",") if ingredient.strip()]
-        excluded_ingredients = [ingredient.strip() for ingredient in ingredient_parts[1].split(",") if ingredient.strip()] if len(ingredient_parts) > 1 else []
+        logging.info(f"GPT response status: {result.get('status', 'invalid')}")
+        logging.info(f"GPT response: {result.get('ingredients', [])}")
 
-        return necessary_ingredients, excluded_ingredients
+        if not result.get('status', 'invalid'):
+            return None, None
+
+        necessary_ingredients = ', '.join(result["ingredients"])
+        original_query = result["original_query"]
+
+        return  necessary_ingredients, original_query
     except openai.error.OpenAIError as e:
         logging.error(f"OpenAI API error: {e}")
         raise HTTPException(status_code=500, detail=f"OpenAI API error: {e}")
 
-async def filter_recipes_based_on_exclusions(excluded_ingredients: list, recipes: List[dict]) -> List[RecipeResponse]:
+
+async def filter_recipes_based_on_original_query(original_query: list, recipes: List[dict]) -> List[str]:
     try:
-        logging.info(f"Extracting excluded ingredients with GPT from query: {excluded_ingredients}")
+        logging.info(f"Filtering recipes with GPT based on original query: {original_query}")
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are an assistant who identifies ingredients to exclude from recipes based on user queries."},
-                {"role": "user", "content": f"You have a list of recipes, each containing ingredients{recipes}. You also have a list of ingredients that the user wants to exclude — {excluded_ingredients}.\
-                  If the exclusion list is empty, return all recipes unchanged.\
-                  If the exclusion list is not empty, remove from the list of recipes those that contain any ingredient (or really clause to it, example: dairy products relates to milk, ice cream, etc) from the exclusion list.\
-                  Return the remaining recipes in the same format as input, without any additional comments. If after the exclusion the list is empty, return empty list."}
+                {"role": "system", "content": "You are an assistant who identifies valid recipes based on user query."},
+                {"role": "user", "content": f"You have a list of recipes, each containing ingredients: {recipes}. "
+                                            f"You also have a query: '{original_query}' to which the recipes in the list "
+                                            f"must fully or very closely correspond. Exclude recipes that do not correspond "
+                                            f"that way from the list and output the json with field 'recipes' that contains "
+                                            f"the modified list. If after filtering the list is empty the 'recipes' field "
+                                            f"must contains empty list"
+                }
             ],
-            max_tokens=7000
+            response_format={"type": "json_object"},
+            max_tokens=10000
         )
-        result = response["choices"][0]["message"]["content"].strip()
-        logging.info(f"GPT response for exclusions: {result}")
 
-        return result
+        try:
+            result = json.loads(response["choices"][0]["message"]["content"])
+        except json.JSONDecodeError as e:
+            logging.info(f"Failed to decode JSON: {e}")
+            return []
+
+        recipes = [f"{recipe['title']}:\n{recipe['link']}" for recipe in result.get('recipes', [])]
+
+        logging.info(f"Resulting recipes: {recipes}")
+
+        return recipes
 
     except openai.error.OpenAIError as e:
         logging.error(f"OpenAI API error: {e}")
         raise HTTPException(status_code=500, detail=f"OpenAI API error: {e}")
 
 
-async def get_recipes_from_service(products: List[str]):
+async def get_recipes_from_service(ingredients: List[str]):
     url = "http://recipe-search-service:8000/recipes/search/"
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            response = await client.post(url, json={"query": ",".join(products)})
+            response = await client.post(url, json={"query": ingredients})
             if response.status_code == 404:
                 return None
 
