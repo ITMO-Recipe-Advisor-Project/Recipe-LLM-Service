@@ -31,12 +31,14 @@ async def filter_products_with_gpt(query: str) -> tuple[None, None] | tuple[str,
                 },
                 {
                     "role": "user",
-                    "content": f"Determine the list of necessary ingredients if there is at least one ingredient in the following query: "
-                    f"'{query}'. Output a JSON object with three fields: status, ingredients, and original_query. "
-                    f"The status field contains the value 'valid' if the query is related to asking for a recipe "
-                    f"with ingredients input, and 'invalid' if the query is not related. The ingredients field "
-                    f"contains a list of ingredients from the query; if there are no ingredients, this field must be an empty list. "
-                    f"The original_query field contains the string of the original query.",
+                    "content": f"Determine the list of necessary ingredients if there is at least one ingredient in "
+                    f"the following query: '{query}'. Output a JSON object with three fields: status, ingredients, and "
+                    f"original_query. You must only receive requests in English. If this condition is not met, you "
+                    f"must set the 'status' field to 'invalid_lang' and set the 'ingredients' field to an empty list. "
+                    f"The status field contains the value 'valid' if the query is related to asking for a recipe with "
+                    f"ingredients input, and 'invalid' if the query is not related. The ingredients field contains a "
+                    f"list of ingredients from the query; if there are no ingredients, this field must be an empty "
+                    f"list. The original_query field contains the string of the original query.",
                 },
             ],
             response_format={"type": "json_object"},
