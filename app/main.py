@@ -3,6 +3,7 @@ from pydantic import BaseModel, ValidationError
 import logging
 from app.services import get_recipes_from_service, filter_products_with_gpt, filter_recipes_based_on_original_query
 from app.utils import generate_user_response
+from app.exceptions import InvalidLanguageException
 
 logging.basicConfig(level=logging.INFO)
 
@@ -26,9 +27,12 @@ async def process_user_request(request: Request):
     except (ValidationError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid request format.")
 
-    necessary_ingredients, original_query = await filter_products_with_gpt(user_data.query)
-    if not necessary_ingredients:
-        return {"message": "Your query is not related to recipes. Please clarify your request."}
+    try:
+        necessary_ingredients, original_query = await filter_products_with_gpt(user_data.query)
+        if not necessary_ingredients:
+            return {"message": "Your query is not related to recipes. Please clarify your request."}
+    except InvalidLanguageException as _:
+        return {"message": "Sorry, but I only understand English. Please try making a new request in English."}
 
     recipes = await get_recipes_from_service(necessary_ingredients)
     if not recipes:

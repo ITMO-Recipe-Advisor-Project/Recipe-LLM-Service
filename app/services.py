@@ -6,6 +6,7 @@ import httpx
 from pydantic import BaseModel
 from app.config import get_config
 import json
+from app.exceptions import InvalidLanguageException
 
 
 class RecipeResponse(BaseModel):
@@ -54,8 +55,11 @@ async def filter_products_with_gpt(query: str) -> tuple[None, None] | tuple[str,
         logging.info(f"GPT response status: {result.get('status', 'invalid')}")
         logging.info(f"GPT response: {result.get('ingredients', [])}")
 
-        if not result.get("status", "invalid"):
+        if result.get("status") == "invalid":
             return None, None
+
+        if result.get("status") == "invalid_lang":
+            raise InvalidLanguageException()
 
         necessary_ingredients = ", ".join(result["ingredients"])
         original_query = result["original_query"]
@@ -64,6 +68,9 @@ async def filter_products_with_gpt(query: str) -> tuple[None, None] | tuple[str,
     except openai.error.OpenAIError as e:
         logging.error(f"OpenAI API error: {e}")
         raise HTTPException(status_code=500, detail=f"OpenAI API error: {e}")
+    except InvalidLanguageException as e:
+        logging.error(f"Language query error: {e}")
+        raise e
 
 
 async def filter_recipes_based_on_original_query(original_query: list, recipes: List[dict]) -> List[str]:
@@ -77,10 +84,10 @@ async def filter_recipes_based_on_original_query(original_query: list, recipes: 
                     "role": "user",
                     "content": f"You have a list of recipes, each containing ingredients: {recipes}. "
                     f"You also have a query: '{original_query}' to which the recipes in the list "
-                    f"must fully or very closely correspond. Exclude recipes that do not match "
-                    f"this criterion from the list, and output a JSON object with a field 'recipes' "
-                    f"that contains the modified list. If the list is empty after filtering, the 'recipes' field "
-                    f"must contain an empty list.",
+                    f"must fully or very closely correspond, you have to make sure the recipe has all the right "
+                    f"ingredients. Exclude recipes that do not match this criterion from the list, and output a JSON "
+                    f"object with a field 'recipes' that contains the modified list. If the list is empty after "
+                    f"filtering, the 'recipes' field must contains an empty list.",
                 },
             ],
             response_format={"type": "json_object"},
