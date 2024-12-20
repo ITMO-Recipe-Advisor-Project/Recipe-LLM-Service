@@ -1,0 +1,80 @@
+name: Lint and Deploy Docker Image
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11
+        cache: 'pip'
+
+    - name: Install black
+      run: pip install black
+
+    - name: Run black
+      run: black --line-length 120 --check app
+
+  deploy:
+    runs-on: ubuntu-22.04
+    needs: lint
+    if: github.event_name == 'push' && contains(github.ref, 'refs/heads/main')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to DockerHub
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ secrets.DOCKER_REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Push Docker image to DockerHub
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ${{ secrets.DOCKER_REGISTRY }}/${{ vars.SERVICE_NAME }}:latest
+
+    - name: Start SSH agent
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Restart on the server
+      run: |
+        ssh -p${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_SERVER }} << EOF
+          set -e
+          echo "Navigating to PROJECT_DIR..."
+          cd /opt/Recipe-Advisor-Services
+    
+          echo "Stopping service..."
+          docker compose down ${{ vars.SERVICE_NAME }}
+    
+          echo "Pulling latest image..."
+          docker compose pull ${{ vars.SERVICE_NAME }}
+    
+          echo "Cleaning up unused images..."
+          docker image prune -f
+    
+          echo "Starting service..."
+          docker compose up ${{ vars.SERVICE_NAME }} -d
+    
+          echo "Deployment completed successfully"
+        EOF
