@@ -20,7 +20,7 @@ openai.proxy = config["PROXY"]
 
 async def filter_products_with_gpt(query: str) -> tuple[None, None] | tuple[str, str]:
     try:
-        logging.info(f"Sending query to GPT: {query}")
+        logging.info(f"Sending query to OPENAI MODEL: {query}")
 
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
@@ -31,13 +31,12 @@ async def filter_products_with_gpt(query: str) -> tuple[None, None] | tuple[str,
                 },
                 {
                     "role": "user",
-                    "content": f"Determine the list of necessary ingredients, from the following query: "
-                    f"'{query}'. Output the json with two fields: status, ingredients and original_query. "
-                    f"status field contains 'valid' value if query related  with asking recipe "
-                    f"with ingredients input and 'invalid' value if query not related. ingredients "
-                    f"field contains list of ingredients from the query, if there is no ingredients "
-                    f"the field must be an empty list. original_query field contains string of "
-                    f"the original query",
+                    "content": f"Determine the list of necessary ingredients if there is at least one ingredient in the following query: "
+                    f"'{query}'. Output a JSON object with three fields: status, ingredients, and original_query. "
+                    f"The status field contains the value 'valid' if the query is related to asking for a recipe "
+                    f"with ingredients input, and 'invalid' if the query is not related. The ingredients field "
+                    f"contains a list of ingredients from the query; if there are no ingredients, this field must be an empty list. "
+                    f"The original_query field contains the string of the original query.",
                 },
             ],
             response_format={"type": "json_object"},
@@ -76,10 +75,10 @@ async def filter_recipes_based_on_original_query(original_query: list, recipes: 
                     "role": "user",
                     "content": f"You have a list of recipes, each containing ingredients: {recipes}. "
                     f"You also have a query: '{original_query}' to which the recipes in the list "
-                    f"must fully or very closely correspond. Exclude recipes that do not correspond "
-                    f"that way from the list and output the json with field 'recipes' that contains "
-                    f"the modified list. If after filtering the list is empty the 'recipes' field "
-                    f"must contains empty list",
+                    f"must fully or very closely correspond. Exclude recipes that do not match "
+                    f"this criterion from the list, and output a JSON object with a field 'recipes' "
+                    f"that contains the modified list. If the list is empty after filtering, the 'recipes' field "
+                    f"must contain an empty list.",
                 },
             ],
             response_format={"type": "json_object"},
