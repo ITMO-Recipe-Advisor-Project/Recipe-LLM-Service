@@ -8,12 +8,15 @@ logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
+
 class UserRequest(BaseModel):
     query: str
+
 
 class RecipeResponse(BaseModel):
     title: str
     link: str
+
 
 @app.post("/process")
 async def process_user_request(request: Request):

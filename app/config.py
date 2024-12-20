@@ -13,5 +13,4 @@ def get_config():
     return {
         "OPENAI_API_KEY": env_vars["OPENAI_API_KEY"],
         "PROXY": env_vars["PROXY"],
-
     }
