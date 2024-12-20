@@ -64,16 +64,16 @@ jobs:
           cd /opt/Recipe-Advisor-Services
     
           echo "Stopping service..."
-          docker compose down ${{ env.SERVICE_NAME }}
+          docker compose down ${{ vars.SERVICE_NAME }}
     
           echo "Pulling latest image..."
-          docker compose pull ${{ env.SERVICE_NAME }}
+          docker compose pull ${{ vars.SERVICE_NAME }}
     
           echo "Cleaning up unused images..."
           docker image prune -f
     
           echo "Starting service..."
-          docker compose up ${{ env.SERVICE_NAME }} -d
+          docker compose up ${{ vars.SERVICE_NAME }} -d
     
           echo "Deployment completed successfully"
         EOF
